@@ -7,73 +7,70 @@ namespace HtmlReflect
 {
     public class Htmlect
     {
-        private string singleObjPredicate = "\t<li class='list-group-item'><strong>";
+        
 
-        private Dictionary<object,string> cache = new Dictionary<object, string>();
+        private Dictionary<Type,List<Getter>> cache = new Dictionary<Type, List<Getter>>();
 
         public string ToHtml(object obj)
         {
-
-            if (cache.ContainsKey(obj))
-            {
-                return cache[obj];
-            }
+            List<Getter> S= GetGetters(obj);
             string r = "<ul class='list-group'>\n";
-            PropertyInfo[] val = obj.GetType().GetProperties();
-            foreach (var property in val)
+            foreach (var getter in S)
             {
-                if(property.GetCustomAttribute<HtmlIgnoreAttribute>()!=null)
-                    continue;
-                var c = property.GetCustomAttribute<HtmlAsAttribute>();
-                if (c != null)
+                r+=getter.ParseToHtml(obj);
+            }
+            return r+"</ul>";
+
+            
+        
+        }
+
+        private List<Getter> GetGetters(object obj)
+        {
+            List<Getter> S;
+            if (cache.TryGetValue(obj.GetType(), out S)) return S;
+            S=new List<Getter>();
+            foreach (var property in obj.GetType().GetProperties())
+            {
+                if (property.GetCustomAttribute<HtmlIgnoreAttribute>() != null)
                 {
-                    r += c.Val.Replace("{name}",property.Name.Replace("_",String.Empty)).Replace("{value}",property.GetValue(obj)?.ToString())+"\n";
+                    S.Add(new GetterIgnore());
                     continue;
                 }
-
-               
-                r += singleObjPredicate + property.Name.Replace("_",String.Empty)+"</strong>:&nbsp" + property.GetValue(obj) + "</li>\n";
-                
-                
+                if (property.GetCustomAttribute<HtmlAsAttribute>() != null)
+                {
+                    S.Add(new GetterAs(property));
+                    continue;
+                }
+                S.Add(new NormalGetter(property));
             }
-            cache.Add(obj,r+"</ul>");
-            return r+"</ul>";
+            cache.Add(obj.GetType(),S);
+            return S;
         }
 
         public string ToHtml(object[] arr)
         {
-            if (cache.ContainsKey(arr)) return cache[arr];
+            List<Getter> S = GetGetters(arr[0]);
+
+            //if (cache.ContainsKey(arr)) return cache[arr];
             string r = "<table class='table table-hover'>\n\t<thead>\n\t\t<tr>";
-            PropertyInfo[] A = arr[0].GetType().GetProperties();
-            foreach (var info in A)
+            foreach (var info in S)
             {
-                if (info.GetCustomAttribute<HtmlIgnoreAttribute>() == null)
-                r += "<th>" + info.Name.Replace("_", String.Empty) + "</th>";
-                
+               
+                r += info.ParseToHtmlArrayHeader();
+
             }
             r += "</tr>\n\t</thead>\n\t<tbody>\n";
             foreach (var o in arr)
             {
                 r += "\t\t<tr>";
-                foreach (var info in A)
+                foreach (var info in S)
                 {
-                    if (info.GetCustomAttribute<HtmlIgnoreAttribute>() != null)
-                    {
-                        continue;
-                    }
-                    var c = info.GetCustomAttribute<HtmlAsAttribute>();
-                    if (c != null)
-                    {
-                        r += c.Val
-                            .Replace("{name}", info.Name.Replace("_", String.Empty))
-                            .Replace("{value}", info.GetValue(o).ToString());
-                        continue;
-                    }
-                    r += "<td>"+ info.GetValue(o)+"</td>";
+                    r+=info.ParseToHtmlArrayEntry(o);
                 }
                 r += "</tr>\n";
             }
-            cache.Add(arr, r + "\t</tbody>\n</table>");
+            //cache.Add(arr, r + "\t</tbody>\n</table>");
             return r+"\t</tbody>\n</table>";
         }
     }

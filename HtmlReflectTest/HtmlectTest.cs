@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MovHubDb;
 using HtmlReflect;
@@ -56,6 +57,12 @@ namespace HtmlReflectTest
         public void PersonMovies()
         {
             a.PersonMovies(85);
+        }
+
+        [TestMethod]
+        public void TestIfCacheWorking()
+        {
+            Assert.AreEqual(a.PersonDetais(85), a.PersonDetais(85));
         }
     }
 }
